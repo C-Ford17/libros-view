@@ -1,6 +1,8 @@
 import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import "../styles/Book.css";
 import { UserSignUp } from "../services/UserSignUp"; // ajusta ruta
+import UserSignIn from "../services/UserSignIn";
 
 const RegisterForm = ({ onSwitch }) => {
     const [name, setName] = useState("");
@@ -12,6 +14,8 @@ const RegisterForm = ({ onSwitch }) => {
     const [success, setSuccess] = useState("");
 
     const userSignup = new UserSignUp();
+    const auth = new UserSignIn();
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -29,8 +33,14 @@ const RegisterForm = ({ onSwitch }) => {
         try {
             const payload = { name, address, email, password, roles: "ROLE_USER" };
             await userSignup.saveUser(payload);
+            // auto-login para iniciar sesión y redirigir
+            await auth.login(email, password);
+            window.dispatchEvent(new Event("auth-changed"));
             setSuccess("Usuario registrado exitosamente.");
+            // limpiar campos por si volvemos a esta vista
             setName(""); setAddress(""); setEmail(""); setPassword(""); setConfirm("");
+            // redirigir al home
+            navigate("/");
         } catch (err) {
             setError(err?.response?.data?.message || "Error al registrar el usuario.");
         }
@@ -64,7 +74,11 @@ const RegisterForm = ({ onSwitch }) => {
 
             <p>
                 ¿Ya tienes una cuenta?{" "}
-                <span className="link" onClick={onSwitch}>Inicia Sesión</span>
+                {onSwitch ? (
+                    <span className="link" onClick={onSwitch}>Inicia Sesión</span>
+                ) : (
+                    <Link className="link" to="/login">Inicia Sesión</Link>
+                )}
             </p>
         </div>
     );

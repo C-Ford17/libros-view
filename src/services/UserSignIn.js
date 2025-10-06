@@ -9,7 +9,7 @@ const api = axios.create({
 
 export default class UserSignIn {
     async login(email, password) {
-        const { data } = await api.post("/api/v1/auth/login", { email, password });
+        const { data } = await api.post("/auth/login", { email, password });
         // data debe ser el token en texto. Si devuelves un objeto {token: "..."} ajústalo:
         const token = typeof data === "string" ? data : data.token;
         this.saveToken(token);
@@ -22,13 +22,19 @@ export default class UserSignIn {
 
     saveToken(token) {
         localStorage.setItem("auth-token", token);
+        // actualizar axios por si hay peticiones inmediatas en esta sesión
+        axios.defaults.headers.common["Authorization"] = "Bearer " + token;
+        // notificar a la UI
+        window.dispatchEvent(new Event("auth-changed"));
     }
     getToken() {
         return localStorage.getItem("auth-token");
     }
     clearToken() {
+        delete axios.defaults.headers.common["Authorization"];
         localStorage.removeItem("auth-token");
         localStorage.removeItem("user-id");
+        window.dispatchEvent(new Event("auth-changed"));
     }
 
     saveUserId(userId) {

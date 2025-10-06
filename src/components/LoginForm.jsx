@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "../styles/Book.css";
 import UserSignIn from "../services/UserSignIn";
 
@@ -8,6 +9,7 @@ const LoginForm = ({ onSwitch, onLogin }) => {
     const [err, setErr] = useState("");
     const [ok, setOk] = useState("");
     const auth = new UserSignIn();
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -22,6 +24,10 @@ const LoginForm = ({ onSwitch, onLogin }) => {
             const { token, userId } = await auth.login(email, password);
             setOk("Inicio de sesión exitoso.");
             if (onLogin) onLogin({ token, userId });
+            // notificar a la app que el estado de auth cambió (por si algún componente escucha)
+            window.dispatchEvent(new Event("auth-changed"));
+            // redirigir al inicio
+            navigate("/");
         } catch (error) {
             const msg =
                 error?.response?.data?.message ||

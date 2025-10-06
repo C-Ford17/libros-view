@@ -29,20 +29,20 @@ const AllBooks = ({ api = "http://localhost:8080/api/v1/books" }) => {
   }, [api]);
 
   // 1) Normaliza: Book -> campos planos desde bookDefinition
-  const normalized = useMemo(() => {
-    return (Array.isArray(books) ? books : []).map((b) => {
-      const d = b.bookDefinition || {};
-      return {
-        id: b.id,
-        state: b.state ?? "",
-        title: d.title ?? "",
-        author: d.author ?? "",
-        editorial: d.editorial ?? "",
-        isbn: d.isbn ?? "",
-        _raw: b, // por si necesitas el objeto original
-      };
-    });
-  }, [books]);
+    const normalized = useMemo(() => {
+        return (Array.isArray(books) ? books : []).map((b) => {
+            const d = b.bookDefinition || {};
+            return {
+                id: b.id,
+                state: b.state ?? "",
+                title: d.title ?? "",
+                author: d.author ?? "",
+                editorial: d.editorial ?? "",
+                isbn: d.isbn ?? "",
+                _raw: b, // por si necesitas el objeto original
+            };
+        });
+    }, [books]);
 
   // 2) Filtro por término de búsqueda
   const q = searchTerm.trim().toLowerCase();

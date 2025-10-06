@@ -10,6 +10,7 @@ import PublishBook from "./components/PublishBook.jsx"; // <-- nuevo
 import BookLogin from "./pages/BookLogin.jsx"; // <-- nuevo
 import Profile from "./pages/Profile.jsx"; // <-- nuevo
 import ExchangePage from "./pages/ExchangePage.jsx";
+import SignUp from "./pages/SignUp.jsx";
 
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
@@ -53,7 +54,23 @@ const router = createBrowserRouter([
   },
   {
     path: "/login",
-    element: <BookLogin />, // <-- nuevo componente
+    element: (
+      <>
+        <Header />
+        <BookLogin />
+        <Footer />
+      </>
+    ),
+  },
+  {
+    path: "/register",
+    element: (
+      <>
+        <Header />
+        <BookLogin />
+        <Footer />
+      </>
+    ),
   },
   {
     path: "/profile",

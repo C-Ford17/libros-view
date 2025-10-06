@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import api from "../api";
 import "../styles/Profile.css";
 
 const Profile = () => {
   const [userInfo, setUserInfo] = useState({
-    name: "María Camila Mercado",
-    email: "camila@example.com",
-    address: "Calle 123 #45-67, Bogotá",
+    name: "",
+    email: "",
+    address: "",
   });
 
   const [userBooks, setUserBooks] = useState([]);
@@ -15,41 +16,45 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const hasFetched = useRef(false);
+
   useEffect(() => {
-    // Libros publicados
-    const mockPublishedBooks = [
-      { id: 1, title: "El Principito", author: "Antoine de Saint-Exupéry" },
-      {
-        id: 2,
-        title: "Cien Años de Soledad",
-        author: "Gabriel García Márquez",
-      },
-      { id: 3, title: "Rayuela", author: "Julio Cortázar" },
-    ];
+    if (hasFetched.current) return; // evitar doble ejecución en StrictMode
+    hasFetched.current = true;
 
-    // Libros intercambiados
-    const mockExchangedBooks = [
-      { id: 1, title: "1984", author: "George Orwell" },
-      {
-        id: 2,
-        title: "Don Quijote de la Mancha",
-        author: "Miguel de Cervantes",
-      },
-    ];
+    const loadProfile = async () => {
+      try {
+        const userId = localStorage.getItem("user-id");
+        if (!userId) {
+          throw new Error("No hay sesión activa. Inicia sesión para ver tu perfil.");
+        }
 
-    // Solicitudes de intercambio
-    const mockExchangeRequests = [
-      { id: 1, requester: "Andrés Pérez", book: "La Odisea" },
-      {
-        id: 2,
-        requester: "Laura Gómez",
-        book: "Crónica de una muerte anunciada",
-      },
-    ];
+        const { data } = await api.get(`/api/v1/clients/${userId}`);
+        const mapped = {
+          name: data.name || "",
+          email: data.email || "",
+          address: data.address || "",
+        };
+        setUserInfo(mapped);
 
-    setUserBooks(mockPublishedBooks);
-    setExchangedBooks(mockExchangedBooks);
-    setExchangeRequests(mockExchangeRequests);
+        try {
+          const { data: books } = await api.get(`/api/v1/clients/${userId}/books`);
+          setUserBooks(Array.isArray(books) ? books : []);
+        } catch (errBooks) {
+          // Silenciar errores de libros para no bloquear el perfil
+          // console.warn("No se pudieron cargar los libros del usuario", errBooks);
+        }
+      } catch (e) {
+        const status = e?.response?.status;
+        let message = e?.response?.data?.message || e.message || "No se pudo cargar el perfil";
+        if (status === 401) message = "Sesión expirada. Vuelve a iniciar sesión.";
+        if (status === 403) message = "No tienes permisos para ver este perfil.";
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProfile();
   }, []);
 
   const handleAccept = (id) => {
@@ -62,6 +67,24 @@ const Profile = () => {
     setExchangeRequests(exchangeRequests.filter((req) => req.id !== id));
   };
 
+  if (loading) {
+    return (
+      <div className="profile-container">
+        <h2>Mi Perfil</h2>
+        <p>Cargando perfil...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="profile-container">
+        <h2>Mi Perfil</h2>
+        <p className="error-message">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="profile-container">
       <h2>Mi Perfil</h2>
@@ -70,32 +93,33 @@ const Profile = () => {
       <section className="profile-info">
         <h3>Información Personal</h3>
         <p>
-          <strong>Nombre:</strong> {userInfo.name}
+          <strong>Nombre:</strong> {userInfo.name || "-"}
         </p>
         <p>
-          <strong>Correo:</strong> {userInfo.email}
+          <strong>Correo:</strong> {userInfo.email || "-"}
         </p>
         <p>
-          <strong>Dirección:</strong> {userInfo.address}
+          <strong>Dirección:</strong> {userInfo.address || "-"}
         </p>
       </section>
 
       {/* Libros publicados */}
-      <section className="profile-section">
-        <h3>Libros Publicados</h3>
-        <div className="books-grid">
-          {userBooks.length > 0 ? (
-            userBooks.map((book) => (
-              <div key={book.id} className="book-card">
-                <h4>{book.title}</h4>
-                <p>{book.author}</p>
-              </div>
-            ))
-          ) : (
-            <p>No has publicado ningún libro aún.</p>
-          )}
-        </div>
-      </section>
+        <section className="profile-section">
+            <h3>Libros Publicados</h3>
+            <div className="books-grid">
+                {userBooks.length > 0 ? (
+                    userBooks.map((book) => (
+                        <div key={book.id} className="book-card">
+                            <h4>{book.bookDefinition?.title}</h4>
+                            <p>{book.bookDefinition?.author}</p>
+                            <small>Estado: {book.state}</small>
+                        </div>
+                    ))
+                ) : (
+                    <p>No has publicado ningún libro aún.</p>
+                )}
+            </div>
+        </section>
 
       {/* Libros intercambiados */}
       <section className="profile-section exchanged">

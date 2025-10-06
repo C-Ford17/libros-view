@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "../styles/PublishBook.css";
+import api from "../api";
 
 export default function PublishBook({ clientId, titlesBase = "/api/v1/titles", booksBase = "/api/v1/books" }) {
   const [defs, setDefs] = useState([]);
@@ -13,28 +14,27 @@ export default function PublishBook({ clientId, titlesBase = "/api/v1/titles", b
   const [successMsg, setSuccessMsg] = useState("");
 
   // ---------------------- Fetch book_definition ----------------------
-    useEffect(() => {
-        let ignore = false;
-        const run = async () => {
-            setLoading(true);
-            setError("");
-            try {
-                const res = await fetch(`${titlesBase}`, { headers: { Accept: "application/json" } });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const data = await res.json();
-                if (!ignore) setDefs(Array.isArray(data) ? data : data.items ?? []);
-            } catch (e) {
-            
-            if (!ignore) setError("No fue posible cargar los libros guardados (book_definition).");
-            console.error(e);
-            } finally {
-                if (!ignore) setLoading(false);
-            }
-        };
-        
-        run();
-        return () => { ignore = true; };
-    }, [titlesBase]); // <-- aquí está el fix
+  useEffect(() => {
+    let ignore = false;
+    const run = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const { data } = await api.get(`${titlesBase}`);
+        if (!ignore) setDefs(Array.isArray(data) ? data : data.items ?? []);
+      } catch (e) {
+        if (!ignore) setError("No fue posible cargar los libros guardados (book_definition).");
+        console.error(e);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      ignore = true;
+    };
+  }, [titlesBase]);
 
 
   // ---------------------- Filter/search ----------------------
@@ -61,21 +61,32 @@ export default function PublishBook({ clientId, titlesBase = "/api/v1/titles", b
             setError("");
 
             try {
+                // Buscar la definición seleccionada para adjuntarla en el payload
+                const selectedDef = defs.find((d) => {
+                    const id = d.id ?? d.idBookDefinition ?? d.id_book_definition;
+                    return String(id) === String(selectedId);
+                }) || {};
+
+                const resolvedClientId = String(clientId || window.localStorage.getItem("user-id") || "").trim();
+
                 const payload = {
-                state: stateText.trim(),
-                bookDefinitionID: String(selectedId),   // ← ahora es UUID plano
-                ...(clientId ? { clientId: String(clientId) } : {}), // ← opcional
+                    state: stateText.trim(),
+                    stateRequest: null,
+                    bookDefinitionID: String(selectedId),
+                    ...(resolvedClientId ? { clientId: resolvedClientId } : {}),
+                    bookDefinition: {
+                        id: selectedDef.id ?? selectedDef.idBookDefinition ?? selectedDef.id_book_definition ?? String(selectedId),
+                        title: selectedDef.title,
+                        author: selectedDef.author,
+                        editorial: selectedDef.editorial,
+                        isbn: selectedDef.isbn,
+                    },
                 };
 
-                const res = await fetch(`${booksBase}`, { // ← barra final por @PostMapping("/")
-                method: "POST",
-                headers: { "Content-Type": "application/json", Accept: "application/json" },
-                body: JSON.stringify(payload),
-                });
+                const res = await api.post(`${booksBase}`, payload);
 
-                if (!res.ok) {
-                const body = await res.text();          // para ver el error real si falla
-                throw new Error(`HTTP ${res.status} - ${body}`);
+                if (!(res && res.status >= 200 && res.status < 300)) {
+                    throw new Error(`HTTP ${res?.status}`);
                 }
 
                 setSuccessMsg("¡Libro publicado correctamente!");
@@ -83,7 +94,8 @@ export default function PublishBook({ clientId, titlesBase = "/api/v1/titles", b
                 setStateText("");
             } catch (e) {
                 console.error(e);
-                setError("No se pudo publicar el libro. Revisa el backend o los datos enviados.");
+                const msg = e?.response?.data?.message || e?.response?.data?.error || e?.message || "No se pudo publicar el libro. Revisa el backend o los datos enviados.";
+                setError(msg);
             } finally {
                 setSubmitting(false);
             }
